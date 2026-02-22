@@ -32,7 +32,7 @@ app.use(
   cors({
     origin: config.FRONTEND_ORIGIN,
     credentials: true,
-  })
+  }),
 );
 
 app.use(
@@ -42,11 +42,11 @@ app.use(
     saveUninitialized: false,
     cookie: {
       maxAge: 24 * 60 * 60 * 1000,
-      secure: config.NODE_ENV === "production",
+      secure: true,
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: "none",
     },
-  })
+  }),
 );
 
 app.use(passport.initialize());
@@ -57,12 +57,12 @@ app.get(
   asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     throw new BadRequestException(
       "This is a bad request",
-      ErrorCodeEnum.AUTH_INVALID_TOKEN
+      ErrorCodeEnum.AUTH_INVALID_TOKEN,
     );
     return res.status(HTTPSTATUS.OK).json({
       message: "Hello Subscribe to the channel & share",
     });
-  })
+  }),
 );
 
 app.use(`${BASE_PATH}/auth`, authRoutes);
