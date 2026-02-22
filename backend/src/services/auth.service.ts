@@ -81,8 +81,6 @@ export const loginOrCreateAccountService = async (data: {
     await session.abortTransaction();
     session.endSession();
     throw error;
-  } finally {
-    session.endSession();
   }
 };
 

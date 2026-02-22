@@ -10,6 +10,7 @@ import {
   loginOrCreateAccountService,
   verifyUserService,
 } from "../services/auth.service";
+import UserModel from "../models/user.model";
 
 passport.use(
   new GoogleStrategy(
@@ -62,5 +63,12 @@ passport.use(
   )
 );
 
-passport.serializeUser((user: any, done) => done(null, user));
-passport.deserializeUser((user: any, done) => done(null, user));
+passport.serializeUser((user: any, done) => done(null, user._id.toString()));
+passport.deserializeUser(async (id: string, done) => {
+  try {
+    const user = await UserModel.findById(id);
+    done(null, user);
+  } catch (error) {
+    done(error, null);
+  }
+});
