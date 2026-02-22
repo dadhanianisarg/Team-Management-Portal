@@ -22,48 +22,45 @@ import projectRoutes from "./routes/project.route";
 import taskRoutes from "./routes/task.route";
 
 const app = express();
+
+/* ✅ REQUIRED FOR RENDER */
+app.set("trust proxy", 1);
+
 const BASE_PATH = config.BASE_PATH;
 
 app.use(express.json());
-
 app.use(express.urlencoded({ extended: true }));
 
 app.use(
   cors({
     origin: config.FRONTEND_ORIGIN,
     credentials: true,
-  }),
+  })
 );
 
 app.use(
   session({
+    name: "sessionId",
     secret: config.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
+    proxy: true,
     cookie: {
       maxAge: 24 * 60 * 60 * 1000,
       secure: true,
       httpOnly: true,
       sameSite: "none",
     },
-  }),
+  })
 );
 
 app.use(passport.initialize());
 app.use(passport.session());
 
-app.get(
-  `/`,
-  asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    throw new BadRequestException(
-      "This is a bad request",
-      ErrorCodeEnum.AUTH_INVALID_TOKEN,
-    );
-    return res.status(HTTPSTATUS.OK).json({
-      message: "Hello Subscribe to the channel & share",
-    });
-  }),
-);
+/* Optional Health Route */
+app.get("/", (req: Request, res: Response) => {
+  res.status(200).send("Backend is running 🚀");
+});
 
 app.use(`${BASE_PATH}/auth`, authRoutes);
 app.use(`${BASE_PATH}/user`, isAuthenticated, userRoutes);
