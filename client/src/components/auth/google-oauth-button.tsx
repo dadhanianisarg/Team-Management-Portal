@@ -5,7 +5,7 @@ const GoogleOauthButton = (props: { label: string }) => {
   const { label } = props;
 
   const handleClick = () => {
-    window.location.href = `${baseURL}/auth/google`;
+    window.location.href = `${baseURL}/api/auth/google`;
   };
   return (
     <Button
