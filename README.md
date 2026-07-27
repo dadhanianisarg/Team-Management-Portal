@@ -1,4 +1,4 @@
-# 🚀 Advanced MERN B2B Teams Project Management SaaS - *TeamSync*
+# 🚀 TeamSync
 
 Welcome to **TeamSync**, a powerful, production-grade, multi-tenant team and project management SaaS application built with **Node.js**, **Express**, **MongoDB**, **React**, and **TypeScript**. 
 
