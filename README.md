@@ -1,8 +1,8 @@
-# 🚀 TeamSync
+# 🚀 Coordina
 
-Welcome to **TeamSync**, a powerful, production-grade, multi-tenant team and project management SaaS application built with **Node.js**, **Express**, **MongoDB**, **React**, and **TypeScript**. 
+Welcome to **Coordina**, a powerful, production-grade, multi-tenant team and project management SaaS application built with **Node.js**, **Express**, **MongoDB**, **React**, and **TypeScript**. 
 
-Designed for modern B2B workforce collaboration, TeamSync features Google OAuth 2.0 & Email/Password authentication, multi-workspace isolation, project and task tracking, granular role-based permissions (RBAC), and analytics dashboards.
+Designed for modern B2B workforce collaboration, Coordina features Google OAuth 2.0 & Email/Password authentication, multi-workspace isolation, project and task tracking, granular role-based permissions (RBAC), and analytics dashboards.
 
 ---
 
@@ -27,7 +27,7 @@ Designed for modern B2B workforce collaboration, TeamSync features Google OAuth 
 
 ## 💡 Project Overview
 
-**TeamSync** is built from the ground up to solve modern team productivity challenges in a multi-tenant environment. Organizations can manage multiple workspace instances, invite members with scoped roles (`OWNER`, `ADMIN`, `MEMBER`), assign tasks with priority and status states, and track real-time project health.
+**Coordina** is built from the ground up to solve modern team productivity challenges in a multi-tenant environment. Organizations can manage multiple workspace instances, invite members with scoped roles (`OWNER`, `ADMIN`, `MEMBER`), assign tasks with priority and status states, and track real-time project health.
 
 ---
 
@@ -179,7 +179,7 @@ Team management portal/
 PORT=8000
 NODE_ENV=development
 
-MONGO_URI="mongodb+srv://<username>:<password>@cluster.mongodb.net/teamSync"
+MONGO_URI="mongodb+srv://<username>:<password>@cluster.mongodb.net/Coordina"
 
 SESSION_SECRET="your_session_secret_key"
 SESSION_EXPIRES_IN="24h"
