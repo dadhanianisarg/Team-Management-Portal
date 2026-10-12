@@ -31,9 +31,28 @@ const BASE_PATH = config.BASE_PATH;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const allowedOrigins = [
+  config.FRONTEND_ORIGIN,
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:8000",
+];
+
 app.use(
   cors({
-    origin: config.FRONTEND_ORIGIN,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        /^https:\/\/team-management-portal.*\.vercel\.app$/.test(origin);
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
     credentials: true,
   })
 );
@@ -68,6 +87,16 @@ app.use(`${BASE_PATH}/workspace`, isAuthenticated, workspaceRoutes);
 app.use(`${BASE_PATH}/member`, isAuthenticated, memberRoutes);
 app.use(`${BASE_PATH}/project`, isAuthenticated, projectRoutes);
 app.use(`${BASE_PATH}/task`, isAuthenticated, taskRoutes);
+
+/* Fallbacks in case client requests are missing the BASE_PATH prefix */
+if (BASE_PATH && BASE_PATH !== "") {
+  app.use("/auth", authRoutes);
+  app.use("/user", isAuthenticated, userRoutes);
+  app.use("/workspace", isAuthenticated, workspaceRoutes);
+  app.use("/member", isAuthenticated, memberRoutes);
+  app.use("/project", isAuthenticated, projectRoutes);
+  app.use("/task", isAuthenticated, taskRoutes);
+}
 
 app.use(errorHandler);
 
