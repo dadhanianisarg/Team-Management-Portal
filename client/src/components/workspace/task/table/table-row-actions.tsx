@@ -31,6 +31,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import EditTaskDialog from "../edit-task-dialog";
 import { useAuthContext } from "@/context/auth-provider";
+import { CustomError } from "@/types/custom-error.type";
 
 interface DataTableRowActionsProps {
   row: Row<TaskType>;
@@ -95,7 +96,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
             setOpenEditDialog(true);
           }
         },
-        onError: (error: any) => {
+        onError: (error: CustomError) => {
           toast({
             title: "Claim Failed",
             description: error.message || "Failed to claim task lock.",
@@ -125,7 +126,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
             variant: "success",
           });
         },
-        onError: (error: any) => {
+        onError: (error: CustomError) => {
           toast({
             title: "Renewal Failed",
             description: error.message || "Failed to renew task lock.",
@@ -155,7 +156,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
             variant: "success",
           });
         },
-        onError: (error: any) => {
+        onError: (error: CustomError) => {
           toast({
             title: "Release Failed",
             description: error.message || "Failed to release task lock.",
@@ -200,7 +201,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           });
           setTimeout(() => setOpenDialog(false), 100);
         },
-        onError: (error: any) => {
+        onError: (error: CustomError) => {
           toast({
             title: "Delete Failed",
             description: error.message,

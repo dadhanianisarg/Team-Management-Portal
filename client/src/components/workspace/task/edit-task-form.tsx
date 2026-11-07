@@ -35,6 +35,7 @@ import { editTaskMutationFn, renewTaskMutationFn } from "@/lib/api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { TaskType } from "@/types/api.type";
+import { CustomError } from "@/types/custom-error.type";
 
 export default function EditTaskForm({ task, onClose }: { task: TaskType; onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -74,7 +75,7 @@ export default function EditTaskForm({ task, onClose }: { task: TaskType; onClos
             variant: "success",
           });
         },
-        onError: (err: any) => {
+        onError: (err: CustomError) => {
           toast({
             title: "Renewal Failed",
             description: err.message || "Could not extend lock lease.",
