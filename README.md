@@ -16,6 +16,7 @@ Designed for modern B2B workforce collaboration, Coordina features Google OAuth 
   - [Role-Based Access Control (RBAC)](#2-role-based-access-control-rbac)
   - [Mongoose Transactions & Data Integrity](#3-mongoose-transactions--data-integrity)
   - [Database Seeding System](#4-database-seeding-system)
+  - [Lease-Based Pessimistic Locking & Fencing Tokens](#5-lease-based-pessimistic-locking--fencing-tokens)
 - [Directory & Project Structure](#-directory--project-structure)
 - [Database Schema & Models](#-database-schema--models)
 - [Environment Variables Configuration](#-environment-variables-configuration)
@@ -38,6 +39,7 @@ Designed for modern B2B workforce collaboration, Coordina features Google OAuth 
 - 👥 **Role-Based Access Control (RBAC)**: Fine-grained permissions (Workspace Owner, Admin, Member).
 - 📁 **Projects Management**: Create and track workspace projects with progress metrics and emojis.
 - 📋 **Task Management**: Full task lifecycle (`BACKLOG`, `TODO`, `IN_PROGRESS`, `IN_REVIEW`, `DONE`), priorities (`LOW`, `MEDIUM`, `HIGH`), and member assignees.
+- 🔒 **Lease-Based Pessimistic Locking**: Distributed exclusive claim, renew, and release locking for tasks with monotonic fencing tokens (`lockVersion`), atomic MongoDB query protection, and automatic lease expiration across multiple server instances.
 - 🔍 **Advanced Filtering & Search**: URL-synced task filtering (`nuqs`), status, priority, and assignee search.
 - 📊 **Analytics Dashboard**: Workspace and project health metrics (total members, active projects, completed tasks).
 - 🔄 **Cookie Session Management**: Secure `express-session` cookies across cross-origin clients.
@@ -119,6 +121,15 @@ Critical write operations (such as role seeding and workspace creation) utilize 
 ### 4. Database Seeding System
 The system includes a dedicated seeder script ([`role.seeder.ts`](file:///C:/Merged%20Drive/coding%20files/web%20development/Major%20Project/Team%20management%20portal/backend/src/seeders/role.seeder.ts)) to populate all default roles (`OWNER`, `ADMIN`, `MEMBER`) and permissions before starting the application.
 
+### 5. Lease-Based Pessimistic Locking & Fencing Tokens
+To prevent write conflicts, race conditions, and accidental overwrites in multi-user distributed deployments:
+- **Atomic Acquisition**: Claims are processed using single atomic MongoDB `findOneAndUpdate` queries ensuring only one concurrent request succeeds across any number of backend instances.
+- **Lease Expiration**: Locks automatically expire after a configurable duration (`TASK_LOCK_LEASE_DURATION_SEC`, default: 300 seconds). Expired locks can be reclaimed immediately without requiring any cron jobs or TTL index deletion of the underlying document.
+- **Fencing Protection (`lockVersion`)**: Each successful lock claim increments a monotonic `lockVersion`. All task updates must provide the matching `lockVersion` and verify unexpired ownership directly in the database write query. Stale client writes are rejected with `HTTP 409 Conflict`.
+- **Safe Idempotency**: If the current lock owner repeats a claim request on their actively held task, the system safely returns the active lease without corrupting or bumping the version.
+- **Protected Mutations**: Both task updates and deletions enforce lock rules at the database level. Deletions are forbidden while a task is actively locked by another team member.
+
+
 ---
 
 ## 📂 Directory & Project Structure
@@ -168,7 +179,7 @@ Team management portal/
 - **`Member`**: Links a `User` to a `Workspace` with a specific `Role`.
 - **`Role`**: Predefined workspace roles (`OWNER`, `ADMIN`, `MEMBER`) and granted permission keys.
 - **`Project`**: Project title, emoji, description, associated workspace reference.
-- **`Task`**: Task title, status, priority, project, workspace, assigned member, due date.
+- **`Task`**: Task title, status, priority, project, workspace, assigned member, due date, `lockOwner` (User reference), `lockExpiresAt` (lease expiration date), and `lockVersion` (fencing version number).
 
 ---
 
@@ -190,6 +201,9 @@ GOOGLE_CALLBACK_URL="http://localhost:8000/api/auth/google/callback"
 
 FRONTEND_ORIGIN="http://localhost:5173"
 FRONTEND_GOOGLE_CALLBACK_URL="http://localhost:5173/google/oauth/callback"
+
+# Lease duration for pessimistic task locks in seconds (Default: 300 = 5 minutes)
+TASK_LOCK_LEASE_DURATION_SEC="300"
 ```
 
 ### Client Environment ([`client/.env`](file:///C:/Merged%20Drive/coding%20files/web%20development/Major%20Project/Team%20management%20portal/client/.env))
@@ -255,6 +269,18 @@ npm run dev
 
 ---
 
+### Step 4: Run Automated Tests
+
+To run the complete Pessimistic Locking test suite (testing atomic concurrent acquisition, lease expiration, renewal, release, fencing tokens, and mutation locks):
+
+```powershell
+cd backend
+npm test
+```
+*Runs native Node test runner (`14/14 tests pass`)*
+
+---
+
 ## 🔌 API Endpoints Reference
 
 | Category | Endpoint | Method | Description |
@@ -274,7 +300,13 @@ npm run dev
 | **Project** | `/api/project/workspace/:workspaceId/all` | `GET` | List workspace projects |
 | **Project** | `/api/project/:id` | `GET` | Get project details & tasks summary |
 | **Task** | `/api/task/workspace/:workspaceId/project/:projectId/create` | `POST` | Create a new task |
-| **Task** | `/api/task/workspace/:workspaceId/all` | `GET` | Get & filter workspace tasks |
+| **Task** | `/api/task/workspace/:workspaceId/all` | `GET` | Get & filter workspace tasks (includes lock state) |
+| **Task** | `/api/task/:id/project/:projectId/workspace/:workspaceId` | `GET` | Get single task details |
+| **Task** | `/api/task/:id/project/:projectId/workspace/:workspaceId/claim` | `PUT` / `POST` | Atomically claim exclusive lock on a task |
+| **Task** | `/api/task/:id/project/:projectId/workspace/:workspaceId/renew` | `PUT` / `POST` | Renew active lock lease (owner + lockVersion) |
+| **Task** | `/api/task/:id/project/:projectId/workspace/:workspaceId/release` | `PUT` / `POST` | Release lock (owner + lockVersion) |
+| **Task** | `/api/task/:id/project/:projectId/workspace/:workspaceId/update` | `PUT` | Update task (requires active lock & matching lockVersion) |
+| **Task** | `/api/task/:id/workspace/:workspaceId/delete` | `DELETE` | Delete task (blocked if locked by another member) |
 
 ---
 

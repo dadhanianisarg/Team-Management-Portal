@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { asyncHandler } from "../middlewares/asyncHandler.middleware";
 import {
   createTaskSchema,
+  releaseTaskSchema,
+  renewTaskSchema,
   taskIdSchema,
   updateTaskSchema,
 } from "../validation/task.validation";
@@ -11,10 +13,13 @@ import { Permissions } from "../enums/role.enum";
 import { getMemberRoleInWorkspace } from "../services/member.service";
 import { roleGuard } from "../utils/roleGuard";
 import {
+  claimTaskService,
   createTaskService,
   deleteTaskService,
   getAllTasksService,
   getTaskByIdService,
+  releaseTaskService,
+  renewTaskService,
   updateTaskService,
 } from "../services/task.service";
 import { HTTPSTATUS } from "../config/http.config";
@@ -44,6 +49,91 @@ export const createTaskController = asyncHandler(
   }
 );
 
+export const claimTaskController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?._id;
+
+    const taskId = taskIdSchema.parse(req.params.id);
+    const projectId = projectIdSchema.parse(req.params.projectId);
+    const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
+
+    const { role } = await getMemberRoleInWorkspace(userId, workspaceId);
+    roleGuard(role, [Permissions.EDIT_TASK]);
+
+    const result = await claimTaskService(
+      workspaceId,
+      projectId,
+      taskId,
+      userId
+    );
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: result.isAlreadyOwner
+        ? "Task is already claimed by you"
+        : "Task claimed successfully",
+      task: result.task,
+      lockVersion: result.lockVersion,
+      lockExpiresAt: result.lockExpiresAt,
+    });
+  }
+);
+
+export const renewTaskController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?._id;
+
+    const body = renewTaskSchema.parse(req.body);
+    const taskId = taskIdSchema.parse(req.params.id);
+    const projectId = projectIdSchema.parse(req.params.projectId);
+    const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
+
+    const { role } = await getMemberRoleInWorkspace(userId, workspaceId);
+    roleGuard(role, [Permissions.EDIT_TASK]);
+
+    const result = await renewTaskService(
+      workspaceId,
+      projectId,
+      taskId,
+      userId,
+      body.lockVersion
+    );
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Task lock renewed successfully",
+      task: result.task,
+      lockVersion: result.lockVersion,
+      lockExpiresAt: result.lockExpiresAt,
+    });
+  }
+);
+
+export const releaseTaskController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?._id;
+
+    const body = releaseTaskSchema.parse(req.body);
+    const taskId = taskIdSchema.parse(req.params.id);
+    const projectId = projectIdSchema.parse(req.params.projectId);
+    const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
+
+    const { role } = await getMemberRoleInWorkspace(userId, workspaceId);
+    roleGuard(role, [Permissions.EDIT_TASK]);
+
+    const result = await releaseTaskService(
+      workspaceId,
+      projectId,
+      taskId,
+      userId,
+      body.lockVersion
+    );
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: result.message,
+      task: result.task,
+    });
+  }
+);
+
 export const updateTaskController = asyncHandler(
   async (req: Request, res: Response) => {
     const userId = req.user?._id;
@@ -61,6 +151,7 @@ export const updateTaskController = asyncHandler(
       workspaceId,
       projectId,
       taskId,
+      userId,
       body
     );
 
@@ -139,7 +230,7 @@ export const deleteTaskController = asyncHandler(
     const { role } = await getMemberRoleInWorkspace(userId, workspaceId);
     roleGuard(role, [Permissions.DELETE_TASK]);
 
-    await deleteTaskService(workspaceId, taskId);
+    await deleteTaskService(workspaceId, taskId, userId);
 
     return res.status(HTTPSTATUS.OK).json({
       message: "Task deleted successfully",

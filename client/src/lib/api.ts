@@ -7,13 +7,17 @@ import {
   AllTaskResponseType,
   AnalyticsResponseType,
   ChangeWorkspaceMemberRoleType,
+  ClaimTaskPayloadType,
   CreateProjectPayloadType,
   CreateTaskPayloadType,
   EditTaskPayloadType,
   CreateWorkspaceResponseType,
   EditProjectPayloadType,
+  LockTaskResponseType,
   ProjectByIdPayloadType,
   ProjectResponseType,
+  ReleaseTaskPayloadType,
+  RenewTaskPayloadType,
 } from "../types/api.type";
 import {
   AllWorkspaceResponseType,
@@ -261,3 +265,42 @@ export const deleteTaskMutationFn = async ({
   );
   return response.data;
 };
+
+// PESSIMISTIC LOCKING API FUNCTIONS
+export const claimTaskMutationFn = async ({
+  taskId,
+  projectId,
+  workspaceId,
+}: ClaimTaskPayloadType): Promise<LockTaskResponseType> => {
+  const response = await API.put(
+    `/task/${taskId}/project/${projectId}/workspace/${workspaceId}/claim`
+  );
+  return response.data;
+};
+
+export const renewTaskMutationFn = async ({
+  taskId,
+  projectId,
+  workspaceId,
+  lockVersion,
+}: RenewTaskPayloadType): Promise<LockTaskResponseType> => {
+  const response = await API.put(
+    `/task/${taskId}/project/${projectId}/workspace/${workspaceId}/renew`,
+    { lockVersion }
+  );
+  return response.data;
+};
+
+export const releaseTaskMutationFn = async ({
+  taskId,
+  projectId,
+  workspaceId,
+  lockVersion,
+}: ReleaseTaskPayloadType): Promise<LockTaskResponseType> => {
+  const response = await API.put(
+    `/task/${taskId}/project/${projectId}/workspace/${workspaceId}/release`,
+    { lockVersion }
+  );
+  return response.data;
+};
+

@@ -1,5 +1,6 @@
 import { Column, ColumnDef, Row } from "@tanstack/react-table";
 import { format } from "date-fns";
+import { Lock, Unlock } from "lucide-react";
 
 import { DataTableColumnHeader } from "./table-column-header";
 import { DataTableRowActions } from "./table-row-actions";
@@ -90,6 +91,55 @@ export const getColumns = (projectId?: string): ColumnDef<TaskType>[] => {
             },
           },
         ]),
+    {
+      accessorKey: "lockStatus",
+      id: "lockStatus",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Lock Status" />
+      ),
+      cell: ({ row }) => {
+        const task = row.original;
+        const now = Date.now();
+        const isLocked =
+          !!task.lockOwner &&
+          !!task.lockExpiresAt &&
+          new Date(task.lockExpiresAt).getTime() > now;
+
+        if (!isLocked) {
+          return (
+            <Badge
+              variant="outline"
+              className="text-xs font-normal text-muted-foreground border-dashed flex items-center gap-1 w-fit"
+            >
+              <Unlock className="w-3 h-3 text-muted-foreground" />
+              <span>Available</span>
+            </Badge>
+          );
+        }
+
+        const ownerName = task.lockOwner?.name || "Member";
+        const initials = getAvatarFallbackText(ownerName);
+        const avatarColor = getAvatarColor(ownerName);
+
+        return (
+          <div className="flex items-center gap-1.5" title={`Locked by ${ownerName}`}>
+            <Badge
+              variant="outline"
+              className="text-xs font-medium text-amber-700 bg-amber-50/70 border-amber-300 flex items-center gap-1.5 py-0.5 px-2"
+            >
+              <Lock className="w-3 h-3 text-amber-600 shrink-0" />
+              <Avatar className="h-4 w-4">
+                <AvatarImage src={task.lockOwner?.profilePicture || ""} alt={ownerName} />
+                <AvatarFallback className={`text-[9px] ${avatarColor}`}>
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <span className="truncate max-w-[90px]">{ownerName}</span>
+            </Badge>
+          </div>
+        );
+      },
+    },
     {
       accessorKey: "assignedTo",
       header: ({ column }) => (

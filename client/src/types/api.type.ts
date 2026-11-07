@@ -239,9 +239,36 @@ export type EditTaskPayloadType = {
     status: TaskStatusEnumType;
     assignedTo: string;
     dueDate: string;
+    lockVersion: number;
   }>;
 };
 
+export type ClaimTaskPayloadType = {
+  taskId: string;
+  projectId: string;
+  workspaceId: string;
+};
+
+export type RenewTaskPayloadType = {
+  taskId: string;
+  projectId: string;
+  workspaceId: string;
+  lockVersion: number;
+};
+
+export type ReleaseTaskPayloadType = {
+  taskId: string;
+  projectId: string;
+  workspaceId: string;
+  lockVersion: number;
+};
+
+export type LockTaskResponseType = {
+  message: string;
+  task?: TaskType;
+  lockVersion?: number;
+  lockExpiresAt?: string;
+};
 
 export type TaskType = {
   _id: string;
@@ -259,6 +286,13 @@ export type TaskType = {
     name: string;
     profilePicture: string | null;
   } | null;
+  lockOwner?: {
+    _id: string;
+    name: string;
+    profilePicture: string | null;
+  } | null;
+  lockExpiresAt?: string | null;
+  lockVersion?: number;
   createdBy?: string;
   dueDate: string;
   taskCode: string;

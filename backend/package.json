@@ -6,7 +6,8 @@
     "seed": "ts-node src/seeders/role.seeder.ts",
     "dev": "ts-node-dev --files src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test": "node -r ts-node/register --test src/__tests__/*.test.ts"
   },
   "keywords": [],
   "author": "",

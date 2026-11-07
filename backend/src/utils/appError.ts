@@ -69,3 +69,13 @@ export class UnauthorizedException extends AppError {
     );
   }
 }
+
+export class ConflictException extends AppError {
+  constructor(message = "Conflict", errorCode?: ErrorCodeEnumType) {
+    super(
+      message,
+      HTTPSTATUS.CONFLICT,
+      errorCode || ErrorCodeEnum.TASK_LOCK_CONFLICT
+    );
+  }
+}

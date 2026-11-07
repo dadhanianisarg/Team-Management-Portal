@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { z } from "zod";
 import { format } from "date-fns";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { CalendarIcon, Loader } from "lucide-react";
+import { CalendarIcon, Loader, Lock, RefreshCw } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -30,7 +31,7 @@ import { Calendar } from "@/components/ui/calendar";
 import useWorkspaceId from "@/hooks/use-workspace-id";
 import { TaskPriorityEnum, TaskStatusEnum } from "@/constant";
 import useGetWorkspaceMembers from "@/hooks/api/use-get-workspace-members";
-import { editTaskMutationFn } from "@/lib/api";
+import { editTaskMutationFn, renewTaskMutationFn } from "@/lib/api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { TaskType } from "@/types/api.type";
@@ -39,9 +40,50 @@ export default function EditTaskForm({ task, onClose }: { task: TaskType; onClos
   const queryClient = useQueryClient();
   const workspaceId = useWorkspaceId();
 
+  const [currentLockVersion, setCurrentLockVersion] = useState(
+    task.lockVersion ?? 0
+  );
+
   const { mutate, isPending } = useMutation({
     mutationFn: editTaskMutationFn,
   });
+
+  const { mutate: renewLock, isPending: isRenewPending } = useMutation({
+    mutationFn: renewTaskMutationFn,
+  });
+
+  const handleRenewLease = () => {
+    renewLock(
+      {
+        taskId: task._id,
+        projectId: task.project?._id ?? "",
+        workspaceId,
+        lockVersion: currentLockVersion,
+      },
+      {
+        onSuccess: (data) => {
+          queryClient.invalidateQueries({
+            queryKey: ["all-tasks", workspaceId],
+          });
+          if (data.lockVersion !== undefined) {
+            setCurrentLockVersion(data.lockVersion);
+          }
+          toast({
+            title: "Lease Extended",
+            description: "Your editing lock has been renewed for 5 minutes.",
+            variant: "success",
+          });
+        },
+        onError: (err: any) => {
+          toast({
+            title: "Renewal Failed",
+            description: err.message || "Could not extend lock lease.",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
 
   const { data: memberData } = useGetWorkspaceMembers(workspaceId);
   const members = memberData?.members || [];
@@ -94,6 +136,7 @@ export default function EditTaskForm({ task, onClose }: { task: TaskType; onClos
       data: {
         ...values,
         dueDate: values.dueDate.toISOString(),
+        lockVersion: currentLockVersion,
       },
     };
 
@@ -120,8 +163,25 @@ export default function EditTaskForm({ task, onClose }: { task: TaskType; onClos
   return (
     <div className="w-full h-auto max-w-full">
       <div className="h-full">
-        <div className="mb-5 pb-2 border-b">
+        <div className="mb-5 pb-2 border-b flex items-center justify-between">
           <h1 className="text-xl font-semibold text-center sm:text-left">Edit Task</h1>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 rounded px-2 py-0.5">
+              <Lock className="w-3 h-3 text-amber-600" />
+              Lock v{currentLockVersion}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs flex items-center gap-1"
+              disabled={isRenewPending}
+              onClick={handleRenewLease}
+            >
+              <RefreshCw className={`w-3 h-3 ${isRenewPending ? "animate-spin" : ""}`} />
+              Renew
+            </Button>
+          </div>
         </div>
         <Form {...form}>
           <form className="space-y-3" onSubmit={form.handleSubmit(onSubmit)}>

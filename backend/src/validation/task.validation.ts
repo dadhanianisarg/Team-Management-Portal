@@ -29,6 +29,10 @@ export const dueDateSchema = z
 
 export const taskIdSchema = z.string().trim().min(1);
 
+export const lockVersionSchema = z.number().int().nonnegative({
+  message: "lockVersion must be a non-negative integer",
+});
+
 export const createTaskSchema = z.object({
   title: titleSchema,
   description: descriptionSchema,
@@ -45,4 +49,13 @@ export const updateTaskSchema = z.object({
   status: statusSchema,
   assignedTo: assignedToSchema,
   dueDate: dueDateSchema,
+  lockVersion: lockVersionSchema,
+});
+
+export const renewTaskSchema = z.object({
+  lockVersion: lockVersionSchema,
+});
+
+export const releaseTaskSchema = z.object({
+  lockVersion: lockVersionSchema,
 });

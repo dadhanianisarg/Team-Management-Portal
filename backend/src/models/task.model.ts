@@ -18,6 +18,9 @@ export interface TaskDocument extends Document {
   assignedTo: mongoose.Types.ObjectId | null;
   createdBy: mongoose.Types.ObjectId;
   dueDate: Date | null;
+  lockOwner: mongoose.Types.ObjectId | null;
+  lockExpiresAt: Date | null;
+  lockVersion: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -72,6 +75,19 @@ const taskSchema = new Schema<TaskDocument>(
     dueDate: {
       type: Date,
       default: null,
+    },
+    lockOwner: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    lockExpiresAt: {
+      type: Date,
+      default: null,
+    },
+    lockVersion: {
+      type: Number,
+      default: 0,
     },
   },
   {
