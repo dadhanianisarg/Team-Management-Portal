@@ -172,6 +172,7 @@ export type CreateProjectPayloadType = {
     name: string;
     description: string;
   };
+  idempotencyKey?: string;
 };
 
 export type ProjectResponseType = {
@@ -224,6 +225,7 @@ export type CreateTaskPayloadType = {
     assignedTo: string;
     dueDate: string;
   };
+  idempotencyKey?: string;
 };
 
 

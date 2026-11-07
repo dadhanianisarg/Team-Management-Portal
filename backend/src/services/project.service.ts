@@ -3,6 +3,8 @@ import ProjectModel from "../models/project.model";
 import TaskModel from "../models/task.model";
 import { NotFoundException } from "../utils/appError";
 import { TaskStatusEnum } from "../enums/task.enum";
+import { IdempotencyOperation } from "../models/idempotency.model";
+import { executeIdempotentTransaction } from "./idempotency.service";
 
 export const createProjectService = async (
   userId: string,
@@ -11,19 +13,65 @@ export const createProjectService = async (
     emoji?: string;
     name: string;
     description?: string;
-  }
+  },
+  idempotencyKey?: string
 ) => {
-  const project = new ProjectModel({
-    ...(body.emoji && { emoji: body.emoji }),
-    name: body.name,
-    description: body.description,
-    workspace: workspaceId,
-    createdBy: userId,
-  });
+  const { emoji, name, description } = body;
 
-  await project.save();
+  const performCreation = async (session?: mongoose.ClientSession) => {
+    const project = new ProjectModel({
+      ...(emoji && { emoji }),
+      name,
+      description,
+      workspace: workspaceId,
+      createdBy: userId,
+    });
 
-  return { project };
+    if (session) {
+      await project.save({ session });
+    } else {
+      await project.save();
+    }
+
+    return {
+      status: 201,
+      body: {
+        message: "Project created successfully",
+        project,
+      },
+    };
+  };
+
+  if (!idempotencyKey) {
+    const res = await performCreation();
+    return { project: res.body.project, status: res.status, isIdempotentReplay: false };
+  }
+
+  const payloadToHash = {
+    workspaceId,
+    name,
+    description: description || null,
+    emoji: emoji || "📊",
+  };
+
+  const result = await executeIdempotentTransaction(
+    {
+      userId,
+      workspaceId,
+      key: idempotencyKey,
+      operation: IdempotencyOperation.CREATE_PROJECT,
+      payloadToHash,
+    },
+    async (session) => {
+      return await performCreation(session);
+    }
+  );
+
+  return {
+    project: result.body.project,
+    status: result.status,
+    isIdempotentReplay: result.isIdempotentReplay,
+  };
 };
 
 export const getProjectsInWorkspaceService = async (

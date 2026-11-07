@@ -16,6 +16,7 @@ const appConfig = () => ({
     FRONTEND_ORIGIN: getEnv('FRONTEND_ORIGIN', 'localhost'),
     FRONTEND_GOOGLE_CALLBACK_URL: getEnv('FRONTEND_GOOGLE_CALLBACK_URL', 'http://localhost:5173/google/oauth/callback'),
     TASK_LOCK_LEASE_DURATION_SEC: parseInt(getEnv('TASK_LOCK_LEASE_DURATION_SEC', '300'), 10),
+    IDEMPOTENCY_RETENTION_HOURS: parseInt(getEnv('IDEMPOTENCY_RETENTION_HOURS', '24'), 10),
 })
 
 export const config = appConfig();

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { z } from "zod";
 import { format } from "date-fns";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,6 +42,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { createTaskMutationFn } from "@/lib/api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
+import {
+  getTaskIdempotencyScope,
+  getOrCreateIdempotencyKey,
+  clearIdempotencyKey,
+  getPendingAttempt,
+} from "@/lib/idempotency";
 
 export default function CreateTaskForm(props: {
   projectId?: string;
@@ -135,6 +142,39 @@ export default function CreateTaskForm(props: {
     },
   });
 
+  // Restore pending attempt from sessionStorage if available (Phase 8.6)
+  useEffect(() => {
+    const scopeKey = getTaskIdempotencyScope(workspaceId, projectId);
+    const pending = getPendingAttempt(scopeKey);
+    if (pending?.payload) {
+      if (pending.payload.title && !form.getValues("title")) {
+        form.setValue("title", pending.payload.title);
+      }
+      if (pending.payload.description && !form.getValues("description")) {
+        form.setValue("description", pending.payload.description);
+      }
+      if (pending.payload.status) {
+        form.setValue("status", pending.payload.status);
+      }
+      if (pending.payload.priority) {
+        form.setValue("priority", pending.payload.priority);
+      }
+      if (pending.payload.assignedTo) {
+        form.setValue("assignedTo", pending.payload.assignedTo);
+      }
+      if (pending.payload.dueDate) {
+        try {
+          form.setValue("dueDate", new Date(pending.payload.dueDate));
+        } catch {
+          // Ignore date parse failure
+        }
+      }
+      if (pending.payload.projectId && !projectId) {
+        form.setValue("projectId", pending.payload.projectId);
+      }
+    }
+  }, [workspaceId, projectId, form]);
+
   const taskStatusList = Object.values(TaskStatusEnum);
   const taskPriorityList = Object.values(TaskPriorityEnum); // ["LOW", "MEDIUM", "HIGH", "URGENT"]
 
@@ -143,17 +183,26 @@ export default function CreateTaskForm(props: {
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     if (isPending) return;
+
+    const requestData = {
+      ...values,
+      dueDate: values.dueDate.toISOString(),
+    };
+
+    const scopeKey = getTaskIdempotencyScope(workspaceId, values.projectId);
+    const idempotencyKey = getOrCreateIdempotencyKey(scopeKey, requestData);
+
     const payload = {
       workspaceId,
       projectId: values.projectId,
-      data: {
-        ...values,
-        dueDate: values.dueDate.toISOString(),
-      },
+      data: requestData,
+      idempotencyKey,
     };
 
     mutate(payload, {
       onSuccess: () => {
+        clearIdempotencyKey(scopeKey);
+
         queryClient.invalidateQueries({
           queryKey: ["project-analytics", projectId],
         });

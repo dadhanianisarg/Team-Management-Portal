@@ -23,10 +23,15 @@ import {
   updateTaskService,
 } from "../services/task.service";
 import { HTTPSTATUS } from "../config/http.config";
+import { validateIdempotencyKey } from "../services/idempotency.service";
 
 export const createTaskController = asyncHandler(
   async (req: Request, res: Response) => {
     const userId = req.user?._id;
+
+    const idempotencyKey = validateIdempotencyKey(
+      req.headers["idempotency-key"] || req.headers["Idempotency-Key"]
+    );
 
     const body = createTaskSchema.parse(req.body);
     const projectId = projectIdSchema.parse(req.params.projectId);
@@ -35,14 +40,15 @@ export const createTaskController = asyncHandler(
     const { role } = await getMemberRoleInWorkspace(userId, workspaceId);
     roleGuard(role, [Permissions.CREATE_TASK]);
 
-    const { task } = await createTaskService(
+    const { task, status } = await createTaskService(
       workspaceId,
       projectId,
       userId,
-      body
+      body,
+      idempotencyKey
     );
 
-    return res.status(HTTPSTATUS.OK).json({
+    return res.status(status || HTTPSTATUS.CREATED).json({
       message: "Task created successfully",
       task,
     });

@@ -131,10 +131,16 @@ export const invitedUserJoinWorkspaceMutationFn = async (
 export const createProjectMutationFn = async ({
   workspaceId,
   data,
+  idempotencyKey,
 }: CreateProjectPayloadType): Promise<ProjectResponseType> => {
+  const headers: Record<string, string> = {};
+  if (idempotencyKey) {
+    headers["Idempotency-Key"] = idempotencyKey;
+  }
   const response = await API.post(
     `/project/workspace/${workspaceId}/create`,
-    data
+    data,
+    { headers }
   );
   return response.data;
 };
@@ -201,10 +207,16 @@ export const createTaskMutationFn = async ({
   workspaceId,
   projectId,
   data,
+  idempotencyKey,
 }: CreateTaskPayloadType) => {
+  const headers: Record<string, string> = {};
+  if (idempotencyKey) {
+    headers["Idempotency-Key"] = idempotencyKey;
+  }
   const response = await API.post(
     `/task/project/${projectId}/workspace/${workspaceId}/create`,
-    data
+    data,
+    { headers }
   );
   return response.data;
 };

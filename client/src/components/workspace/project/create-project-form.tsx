@@ -18,13 +18,19 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import useWorkspaceId from "@/hooks/use-workspace-id";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createProjectMutationFn } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import { Loader } from "lucide-react";
+import {
+  getProjectIdempotencyScope,
+  getOrCreateIdempotencyKey,
+  clearIdempotencyKey,
+  getPendingAttempt,
+} from "@/lib/idempotency";
 
 export default function CreateProjectForm({
   onClose,
@@ -56,21 +62,48 @@ export default function CreateProjectForm({
     },
   });
 
+  // Restore pending attempt from sessionStorage if available (Phase 8.6)
+  useEffect(() => {
+    const scopeKey = getProjectIdempotencyScope(workspaceId);
+    const pending = getPendingAttempt(scopeKey);
+    if (pending?.payload) {
+      if (pending.payload.name && !form.getValues("name")) {
+        form.setValue("name", pending.payload.name);
+      }
+      if (pending.payload.description && !form.getValues("description")) {
+        form.setValue("description", pending.payload.description);
+      }
+      if (pending.payload.emoji) {
+        setEmoji(pending.payload.emoji);
+      }
+    }
+  }, [workspaceId, form]);
+
   const handleEmojiSelection = (emoji: string) => {
     setEmoji(emoji);
   };
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     if (isPending) return;
+
+    const requestData = {
+      emoji,
+      ...values,
+    };
+
+    const scopeKey = getProjectIdempotencyScope(workspaceId);
+    const idempotencyKey = getOrCreateIdempotencyKey(scopeKey, requestData);
+
     const payload = {
       workspaceId,
-      data: {
-        emoji,
-        ...values,
-      },
+      data: requestData,
+      idempotencyKey,
     };
+
     mutate(payload, {
       onSuccess: (data) => {
+        clearIdempotencyKey(scopeKey);
+
         const project = data.project;
         queryClient.invalidateQueries({
           queryKey: ["allprojects", workspaceId],

@@ -1,9 +1,12 @@
+import mongoose from "mongoose";
 import { TaskPriorityEnum, TaskStatusEnum } from "../enums/task.enum";
 import MemberModel from "../models/member.model";
 import ProjectModel from "../models/project.model";
 import TaskModel from "../models/task.model";
 import { BadRequestException, ConflictException, NotFoundException } from "../utils/appError";
 import { config } from "../config/app.config";
+import { IdempotencyOperation } from "../models/idempotency.model";
+import { executeIdempotentTransaction } from "./idempotency.service";
 
 const getLockOwnerId = (lockOwner: any): string | null => {
   if (!lockOwner) return null;
@@ -21,45 +24,97 @@ export const createTaskService = async (
     status: string;
     assignedTo?: string | null;
     dueDate?: string;
-  }
+  },
+  idempotencyKey?: string
 ) => {
   const { title, description, priority, status, assignedTo, dueDate } = body;
 
-  const project = await ProjectModel.findById(projectId);
+  const performCreation = async (session?: mongoose.ClientSession) => {
+    const projectQuery = ProjectModel.findById(projectId);
+    if (session) projectQuery.session(session);
+    const project = await projectQuery;
 
-  if (!project || project.workspace.toString() !== workspaceId.toString()) {
-    throw new NotFoundException(
-      "Project not found or does not belong to this workspace"
-    );
-  }
-  if (assignedTo) {
-    const isAssignedUserMember = await MemberModel.exists({
-      userId: assignedTo,
-      workspaceId,
+    if (!project || project.workspace.toString() !== workspaceId.toString()) {
+      throw new NotFoundException(
+        "Project not found or does not belong to this workspace"
+      );
+    }
+    if (assignedTo) {
+      const memberQuery = MemberModel.exists({
+        userId: assignedTo,
+        workspaceId,
+      });
+      if (session) memberQuery.session(session);
+      const isAssignedUserMember = await memberQuery;
+
+      if (!isAssignedUserMember) {
+        throw new BadRequestException("Assigned user is not a member of this workspace.");
+      }
+    }
+    const task = new TaskModel({
+      title,
+      description,
+      priority: priority || TaskPriorityEnum.MEDIUM,
+      status: status || TaskStatusEnum.TODO,
+      assignedTo,
+      createdBy: userId,
+      workspace: workspaceId,
+      project: projectId,
+      dueDate,
+      lockOwner: null,
+      lockExpiresAt: null,
+      lockVersion: 0,
     });
 
-    if (!isAssignedUserMember) {
-      throw new Error("Assigned user is not a member of this workspace.");
+    if (session) {
+      await task.save({ session });
+    } else {
+      await task.save();
     }
+
+    return {
+      status: 201,
+      body: {
+        message: "Task created successfully",
+        task,
+      },
+    };
+  };
+
+  if (!idempotencyKey) {
+    const res = await performCreation();
+    return { task: res.body.task, status: res.status, isIdempotentReplay: false };
   }
-  const task = new TaskModel({
+
+  const payloadToHash = {
+    workspaceId,
+    projectId,
     title,
-    description,
+    description: description || null,
     priority: priority || TaskPriorityEnum.MEDIUM,
     status: status || TaskStatusEnum.TODO,
-    assignedTo,
-    createdBy: userId,
-    workspace: workspaceId,
-    project: projectId,
-    dueDate,
-    lockOwner: null,
-    lockExpiresAt: null,
-    lockVersion: 0,
-  });
+    assignedTo: assignedTo || null,
+    dueDate: dueDate || null,
+  };
 
-  await task.save();
+  const result = await executeIdempotentTransaction(
+    {
+      userId,
+      workspaceId,
+      key: idempotencyKey,
+      operation: IdempotencyOperation.CREATE_TASK,
+      payloadToHash,
+    },
+    async (session) => {
+      return await performCreation(session);
+    }
+  );
 
-  return { task };
+  return {
+    task: result.body.task,
+    status: result.status,
+    isIdempotentReplay: result.isIdempotentReplay,
+  };
 };
 
 export const claimTaskService = async (

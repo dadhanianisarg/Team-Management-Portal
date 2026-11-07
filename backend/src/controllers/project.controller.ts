@@ -18,9 +18,14 @@ import {
   updateProjectService,
 } from "../services/project.service";
 import { HTTPSTATUS } from "../config/http.config";
+import { validateIdempotencyKey } from "../services/idempotency.service";
 
 export const createProjectController = asyncHandler(
   async (req: Request, res: Response) => {
+    const idempotencyKey = validateIdempotencyKey(
+      req.headers["idempotency-key"] || req.headers["Idempotency-Key"]
+    );
+
     const body = createProjectSchema.parse(req.body);
     const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
 
@@ -28,9 +33,14 @@ export const createProjectController = asyncHandler(
     const { role } = await getMemberRoleInWorkspace(userId, workspaceId);
     roleGuard(role, [Permissions.CREATE_PROJECT]);
 
-    const { project } = await createProjectService(userId, workspaceId, body);
+    const { project, status } = await createProjectService(
+      userId,
+      workspaceId,
+      body,
+      idempotencyKey
+    );
 
-    return res.status(HTTPSTATUS.CREATED).json({
+    return res.status(status || HTTPSTATUS.CREATED).json({
       message: "Project created successfully",
       project,
     });
